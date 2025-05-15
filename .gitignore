@@ -2,6 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# Python
+*.pyc
+venv/
+*.env
+.env
 
 # C extensions
 *.so
@@ -151,8 +156,16 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Veritabanları
+chroma_db_*/
+*.sqlite3 # Eğer ileride SQLite kullanırsanız
+
 # Pyre type checker
 .pyre/
+# IDE ve OS dosyaları
+.vscode/
+.idea/
+*.DS_Store
 
 # pytype static type analyzer
 .pytype/
