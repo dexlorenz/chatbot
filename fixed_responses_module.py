@@ -2,7 +2,7 @@
 
 # Cevabı sabit olan sorular ve yanıtları için bir sözlük
 # Anahtarlar küçük harfe çevrilmiş ve soru işaretleri kaldırılmış olmalı
-FIXED_RESPONSES = {
+RAW_FIXED_RESPONSES_DATA = {
     "kargo kaç günde gelir": "Siparişler genellikle 2-4 iş günü içerisinde teslim edilir.",
     "kargo ücreti ne kadar": "500 TL ve üzeri alışverişlerde kargo ücretsizdir. Altındaki siparişler için kargo ücreti 30 TL'dir.",
     "iade süresi ne kadar": "Ürünlerinizi teslim aldıktan sonra 14 gün içerisinde iade edebilirsiniz.",
@@ -168,6 +168,18 @@ def normalize_for_fixed_lookup(text: str) -> str:
         return ""
     return text.lower().replace('?', '').replace('.', '').strip()
 
+# Normalize edilmiş anahtarlarla FIXED_RESPONSES sözlüğünü oluşturan fonksiyon
+def _initialize_normalized_fixed_responses() -> dict:
+    normalized_responses = {}
+    for question, answer in RAW_FIXED_RESPONSES_DATA.items():
+        normalized_key = normalize_for_fixed_lookup(question)
+        normalized_responses[normalized_key] = answer
+    return normalized_responses
+
+# Asıl kullanılacak, normalize edilmiş FIXED_RESPONSES sözlüğü
+# Bu, modül ilk import edildiğinde bir kere çalışır ve sözlüğü oluşturur.
+FIXED_RESPONSES = _initialize_normalized_fixed_responses()
+
 def get_fixed_response(user_message: str) -> str | None:
     """
     Verilen kullanıcı mesajı için sabit bir cevap olup olmadığını kontrol eder.
@@ -175,3 +187,8 @@ def get_fixed_response(user_message: str) -> str | None:
     """
     normalized_message = normalize_for_fixed_lookup(user_message)
     return FIXED_RESPONSES.get(normalized_message)
+
+
+print(f"Fixed Responses Modülü: {len(FIXED_RESPONSES)} adet normalize edilmiş sabit cevap yüklendi.")
+if len(RAW_FIXED_RESPONSES_DATA) != len(FIXED_RESPONSES):
+    print(f"UYARI: RAW_FIXED_RESPONSES_DATA ({len(RAW_FIXED_RESPONSES_DATA)} adet) ile normalize edilmiş FIXED_RESPONSES ({len(FIXED_RESPONSES)} adet) arasında eleman sayısı farkı var. Bu, normalize edilmiş bazı anahtarların çakıştığı anlamına gelebilir!")
