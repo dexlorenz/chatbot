@@ -1,22 +1,27 @@
 # config.py
-
 import os
+
+# Bu satır, config.py dosyasının bulunduğu klasörün tam yolunu verir
+# (yani C:\Bottingen\chatbot)
+BASE_DIR_CONFIG = os.path.dirname(os.path.abspath(__file__))
 
 # --- Model Konfigürasyonu ---
 MODEL_BASENAME = "gemma-3-12B-it-QAT-Q4_0.gguf"
-MODEL_FOLDER = r"C:\Bottingen\models\gemma"
+# Modellerin, config.py ile aynı seviyedeki 'models' klasörünün altında olduğunu varsayıyoruz
+MODEL_FOLDER = os.path.join(BASE_DIR_CONFIG, "models", "gemma")
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_BASENAME)
 
 # --- SSS Dosyası Konfigürasyonu ---
-SSS_DOSYA_YOLU = r"C:\Bottingen\SSS.jsonl"
+# SSS.jsonl dosyasının config.py ile aynı dizinde (chatbot klasöründe) olduğunu varsayıyoruz
+SSS_DOSYA_YOLU = os.path.join(BASE_DIR_CONFIG, "SSS.jsonl") # <<<--- BU SATIRI KONTROL EDİN VE GÜNCELLEYİN
 
 # --- Embedding Modeli Konfigürasyonu ---
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 
 # --- ChromaDB Konfigürasyonu ---
-CHROMA_PERSIST_DIRECTORY = "./chroma_db_modaselvim_sss_jsonl_hybrid_filter_v1"
+# ChromaDB klasörünün de ana proje dizininde (chatbot klasöründe) oluşacağını varsayıyoruz
+CHROMA_PERSIST_DIRECTORY = os.path.join(BASE_DIR_CONFIG, "chroma_db_modaselvim_sss_jsonl_hybrid_filter_v1")
 CHROMA_COLLECTION_NAME = "modaselvim_sss_collection_jsonl_hybrid_filter_v1"
-
 # --- RAG Sistem Mesajı ---
 RAG_SYSTEM_PROMPT_TEXT = """Sen bir müşteri temsilcisisin. Modaselvim şirketi için çalışıyorsun. Selam verenlere ("merhaba", "selam", "merhabalar", "selamun aleyküm") ya da talebiyle ilgili henüz bilgi vermemiş kişilere  
 'Modaselvim'e hoşgeldiniz. Size nasıl yardımcı olabilirim?' cümlesi ile cevap ver. Sadece modaselvim hakkındaki sorulara cevap ver. Kibar ve nazik bir dil kullan.
