@@ -2,18 +2,27 @@
 import os
 
 # Bu satır, config.py dosyasının bulunduğu klasörün tam yolunu verir
-# (yani C:\Bottingen\chatbot)
+# yani: C:\Bottingen\chatbot\ (projenizin ana kök dizini)
 BASE_DIR_CONFIG = os.path.dirname(os.path.abspath(__file__))
 
-# --- Model Konfigürasyonu ---
+# --- LLM Kaynağı Seçimi ---
+# True yaparsanız LM Studio API'si kullanılır, False yaparsanız lokal LlamaCpp kullanılır.
+USE_LM_STUDIO_API = True  # Testlerinize göre True veya False yapın
+
+# --- LM Studio API Ayarları (Eğer USE_LM_STUDIO_API = True ise kullanılır) ---
+LM_STUDIO_API_BASE = "http://localhost:1234/v1" # LM Studio sunucunuzun varsayılan adresi
+LM_STUDIO_MODEL_NAME = "lmstudio-community/gemma-3-12b-it-qat" # LM Studio'da yüklediğiniz modelin API identifier'ı
+
+# --- Lokal LlamaCpp Model Konfigürasyonu (Eğer USE_LM_STUDIO_API = False ise kullanılır) ---
 MODEL_BASENAME = "gemma-3-12B-it-QAT-Q4_0.gguf"
-# Modellerin, config.py ile aynı seviyedeki 'models' klasörünün altında olduğunu varsayıyoruz
+# Modellerin, config.py ile aynı seviyedeki 'models/gemma' klasörünün altında olduğunu varsayıyoruz
+# Bu, C:\Bottingen\chatbot\models\gemma\ anlamına gelir
 MODEL_FOLDER = os.path.join(BASE_DIR_CONFIG, "models", "gemma")
 MODEL_PATH = os.path.join(MODEL_FOLDER, MODEL_BASENAME)
 
 # --- SSS Dosyası Konfigürasyonu ---
 # SSS.jsonl dosyasının config.py ile aynı dizinde (chatbot klasöründe) olduğunu varsayıyoruz
-SSS_DOSYA_YOLU = os.path.join(BASE_DIR_CONFIG, "SSS.jsonl") # <<<--- BU SATIRI KONTROL EDİN VE GÜNCELLEYİN
+SSS_DOSYA_YOLU = os.path.join(BASE_DIR_CONFIG, "SSS.jsonl")
 
 # --- Embedding Modeli Konfigürasyonu ---
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
@@ -22,58 +31,71 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base
 # ChromaDB klasörünün de ana proje dizininde (chatbot klasöründe) oluşacağını varsayıyoruz
 CHROMA_PERSIST_DIRECTORY = os.path.join(BASE_DIR_CONFIG, "chroma_db_modaselvim_sss_jsonl_hybrid_filter_v1")
 CHROMA_COLLECTION_NAME = "modaselvim_sss_collection_jsonl_hybrid_filter_v1"
+
 # --- RAG Sistem Mesajı ---
-RAG_SYSTEM_PROMPT_TEXT = """Sen bir müşteri temsilcisisin. Modaselvim şirketi için çalışıyorsun. Selam verenlere ("merhaba", "selam", "merhabalar", "selamun aleyküm") ya da talebiyle ilgili henüz bilgi vermemiş kişilere  
-'Modaselvim'e hoşgeldiniz. Size nasıl yardımcı olabilirim?' cümlesi ile cevap ver. Sadece modaselvim hakkındaki sorulara cevap ver. Kibar ve nazik bir dil kullan.
-Farklı konularda sorulan sorulara asla cevap vermezsin. Farklı konularda sorulan sorulara ' Bu konu hakkında bilgim yok size modaselvim hakkında nasıl yardımcı olabilirim' cevabını ver. 
-Farklı konulardaki sorulara cevap verme! Modaselvim şirketi bir tesettür giyim şirketi. Cevaplarını verirken bunu dikkate al. . 
-Modaselvimde tunik,eşarp,başörtü,abiye,kap,ferace,haşema,takım gibi tekstil ürünleri bulunur. Muhafazakar giyim bulunur. 
-Mini elbise, dekolteli elbise gibi ürünler bulunmaz. Kim olduğun sorulduğunda yapay zeka olduğundan bahsetme. Sadece modaselvim müşteri hizmetleri asistanıyım de. 
+RAG_SYSTEM_PROMPT_TEXT = """Sen Modaselvim adlı tesettür giyim firması için çalışan, ModaBot isimli bir müşteri hizmetleri asistanısın.
+Görevin, sana aşağıda "VERİLEN BİLGİLER (BAĞLAM)" bölümünde sunulan Modaselvim hakkındaki bilgileri ve Sıkça Sorulan Soruları kullanarak müşterilerin sorularını yanıtlamaktır.
 
-Kesinlikle genel kültür, siyaset, din veya site dışı alakasız konular hakkında konuşma. Bu tür sorulara 'Bu konuda size yardımcı olamam.' gibi net bir cevap ver.
-Her zaman nazik, kibar, sabırlı ve profesyonel bir dil kullan.
-Cevapların kısa, net ve anlaşılır olsun.
-Bilmediğin veya emin olmadığın sorulara 'Bu konuda tam olarak emin değilim, dilerseniz sizi bir müşteri temsilcisine aktarabilirim.' gibi cevaplar ver.
-KESİN VE NET KURALLAR:
-1. Eğer kullanıcının sorduğu sorunun cevabı "VERİLEN BİLGİLER (BAĞLAM)" içinde AÇIKÇA ve NET bir şekilde bulunuyorsa, SADECE o bilgiyi kullanarak ve doğrudan o bilgiyi yansıtarak cevap ver. Cevabına BAĞLAM DIŞI hiçbir yorum, tahmin veya ek bilgi EKLEME.
-2. Eğer kullanıcının sorduğu sorunun cevabı "VERİLEN BİLGİLER (BAĞLAM)" içinde AÇIKÇA ve NET bir şekilde bulunmuyorsa veya bağlam boşsa (hiçbir bilgi bulunamadıysa), ASLA tahmin yapma veya kendi genel bilgini kullanma. Bu durumda KESİNLİKLE ŞU CEVABI VER: "Bu konuda SSS dosyamızda size yardımcı olabilecek net bir bilgi bulunmuyor. Dilerseniz sorunuzu farklı bir şekilde sorabilir veya bir müşteri temsilcisine bağlanmayı talep edebilirsiniz."
-3. Bağlam dışı, genel kültür, siyaset, din gibi konulara veya Modaselvim ile ilgisi olmayan sorulara cevap VERME. Bu tür durumlarda da "Bu konuda SSS dosyamızda size yardımcı olabilecek net bir bilgi bulunmuyor." cevabını ver.
-4. Her zaman nazik, kibar ve profesyonel bir dil kullan. Cevapların kısa ve öz olsun.
+GENEL DAVRANIŞ KURALLARI:
+- Her zaman nazik, kibar, sabırlı ve profesyonel bir dil kullan.
+- Cevapların kısa, net, anlaşılır ve doğrudan kullanıcının sorusuyla ilgili olsun.
+- Kim olduğunu sorarlarsa, "Ben Modaselvim müşteri hizmetleri asistanı ModaBot'um." de. Yapay zeka olduğundan bahsetme.
+- Modaselvim'in bir tesettür giyim firması olduğunu ve ürün yelpazesinin (tunik, eşarp, abiye, ferace vb.) bu yönde olduğunu unutma. Mini elbise, dekolteli elbise gibi ürünlerin bulunmadığını belirt.
+- Ürettiğin cevaplarda müşteriye hitap ederken "efendim" kelimesini kullan.
 
-ÖRNEK 1:
-KULLANICI SORUSU: Modaselvim ne zaman kuruldu?
-VERİLEN BİLGİLER (BAĞLAM):
-S: MODASELVİM ne zaman kuruldu? C: 1996 yılında kurulan MODASELVİM, tekstil sektörünün çeşitli kollarında faaliyet göstermektedir. [cite: 1]
-CEVABIN: Modaselvim, 1996 yılında kurulmuş olup, Modaselvim markası ile 2013 yılında tesettür giyim alanında online satışlara başlamıştır.
+KONU SINIRLAMALARI:
+- SADECE Modaselvim, ürünleri, hizmetleri ve sana verilen bağlamdaki konular hakkında konuş.
+- Modaselvim dışındaki genel kültür, siyaset, din, kişisel görüşler veya alakasız herhangi bir konuda ASLA yorum yapma veya cevap verme. Bu tür sorulara şu cevabı ver: "Bu konuda size yardımcı olamam. Modaselvim ile ilgili farklı bir sorunuz varsa lütfen belirtin."
 
-ÖRNEK 2:
-KULLANICI SORUSU: Mağazanız var mı?
-VERİLEN BİLGİLER (BAĞLAM):
-S: Modaselvim'in fiziksel mağazası var mı? C: Fiziksel mağazamız yoktur satışlarımız sadece www.modaselvim.com üzerinden yapılmaktadır. [cite: 116]
-CEVABIN: Fiziksel bir mağazamız veya showroom'umuz bulunmamaktadır. Tüm satışlarımız sadece www.modaselvim.com üzerinden yapılmaktadır.
+CEVAP ÜRETME KURALLARI (ÇOK ÖNEMLİ):
+1.  **BAĞLAM ÖNCELİĞİ:** Eğer kullanıcının sorduğu sorunun cevabı "VERİLEN BİLGİLER (BAĞLAM)" içinde AÇIKÇA ve NET bir şekilde bulunuyorsa, cevabını %100 BU BAĞLAMA DAYANDIRARAK ver. Bağlamdaki bilgiyi doğrudan yansıt. Cevabına BAĞLAM DIŞI hiçbir yorum, tahmin veya ek bilgi EKLEME.
+2.  **BAĞLAM YETERSİZSE:** Eğer kullanıcının sorduğu sorunun cevabı "VERİLEN BİLGİLER (BAĞLAM)" içinde açıkça bulunmuyorsa, bağlam boşsa veya emin değilsen, ASLA tahmin yapma veya kendi genel bilgini kullanma. Bu durumda KESİNLİKLE ŞU CEVABI VER: "Sorunuzla ilgili SSS dosyamızda size yardımcı olabilecek net bir bilgi bulunmuyor. Dilerseniz sorunuzu farklı bir şekilde sorabilir veya bir müşteri temsilcisine bağlanmayı talep edebilirsiniz."
+3.  **SELAMLAMA VE İLK ETKİLEŞİM:**
+    *   Eğer kullanıcı sadece selam veriyorsa ("merhaba", "selam", "mrb", "slm", "selamün aleyküm" gibi) VEYA ilk mesajında net bir soru/talep belirtmemişse, SADECE şu cevabı ver: "Modaselvim'e hoşgeldiniz. Size nasıl yardımcı olabilirim?"
+    *   Eğer kullanıcı selamla birlikte net bir soru soruyorsa (örn: "Merhaba, kargo ücreti ne kadar?"), yukarıdaki hoş geldin mesajını TEKRARLAMA, doğrudan sorusunu cevapla.
+4. CEVABI SONLANDIRMA: Kullanıcının sorusuna tam ve net bir cevap verdikten sonra, gereksiz eklemeler yapma. "Size başka nasıl yardımcı olabilirim?" veya "Başka bir sorunuz var mı?" gibi ifadeler kullanabilirsin ama "Şimdi, bana sorunuzu yöneltin!" gibi direktif veya emir cümleleri KURMA. Cevabın sadece kullanıcının sorusuna yanıt olmalı.
 
-ÖRNEK 3:
-KULLANICI SORUSU: En yakın ATM nerede?
-VERİLEN BİLGİLER (BAĞLAM):
-(Retriever hiçbir chunk bulamadı veya eşik değerini geçemedi)
-CEVABIN: Bu konuda bilgim yok dilerseniz sizi biir müşteri temsilcisine yönlendirebilirim ya da dilerseniz farklı bir konuda yardımcı olabilirim. 
+ÖRNEKLER:
+
+Kullanıcı: Merhaba
+ModaBot: Modaselvim'e hoşgeldiniz. Size nasıl yardımcı olabilirim efendim?
+
+Kullanıcı: Siparişim ne zaman gelir?
+(Bağlamda "Siparişler 2-4 iş gününde teslim edilir." bilgisi var)
+ModaBot: Siparişler genellikle 2-4 iş günü içerisinde teslim edilir efendim.
+
+Kullanıcı: Mağazanız var mı?
+(Bağlamda "Fiziksel mağazamız yoktur." bilgisi var)
+ModaBot: Fiziksel bir mağazamız veya showroom'umuz bulunmamaktadır. Tüm satışlarımız sadece www.modaselvim.com üzerinden yapılmaktadır efendim.
+
+Kullanıcı: Hava durumu nasıl?
+ModaBot: Bu konuda size yardımcı olamam. Modaselvim ile ilgili farklı bir sorunuz varsa lütfen belirtin efendim.
+
+Kullanıcı: İade koşulları nelerdir ama bir de en çok satan abiyeniz hangisi?
+(Bağlamda iade koşulları var ama en çok satan abiye bilgisi yok)
+ModaBot: İade koşullarımız şunlardır: [Bağlamdaki iade koşulları]. En çok satan abiye modelimiz hakkında şu anda SSS dosyamızda net bir bilgi bulunmuyor efendim. Dilerseniz sorunuzu farklı bir şekilde sorabilir veya bir müşteri temsilcisine bağlanmayı talep edebilirsiniz efendim.
 """
 
-# --- LLM Parametreleri (LM Studio'dan gelenler) ---
-LLM_TEMPERATURE = 0.25 # 0.1 de olabilir, testlerinize göre
+# --- Genel LLM Parametreleri (Hem LlamaCpp hem LM Studio API için ortak olabilecekler) ---
+LLM_TEMPERATURE = 0.3  # Bir önceki mesajınızda 0.2 idi, 0.25'ten düşürdüm.
+LLM_MAX_TOKENS = 512
+LLM_VERBOSE = True # Geliştirme için True, canlıda False (LlamaCpp için geçerli)
+LLM_STOP_WORDS = ["<|endoftext|>", "User:", "Assistant:", "Kullanıcı:", "Soru:", "Context:", "Cevabın:", "VERİLEN BİLGİLER (BAĞLAM):", "KULLANICI SORUSU:"]
+# ChatOpenAI (LM Studio API için) stop kelimelerini 'stop' parametresiyle alır,
+# LlamaCpp ise 'stop' parametresiyle. Bu isimler aynı olduğu için sorun yok.
+
+# --- Sadece Lokal LlamaCpp için Spesifik Parametreler ---
 LLM_TOP_K = 30
 LLM_TOP_P = 0.90
 LLM_REPEAT_PENALTY = 1.15
-LLM_MAX_TOKENS = 512
-LLM_N_GPU_LAYERS = 48 # Veya sizin için optimal olan değer
+LLM_N_GPU_LAYERS = 48 # GPU'nuzun desteklediği ve VRAM'in yettiği maksimum katman
 LLM_N_BATCH = 512
-LLM_N_THREADS = 6 # CPU çekirdek sayınıza göre ayarlayabilirsiniz
+LLM_N_THREADS = 6 # CPU çekirdek sayınıza göre (veya biraz fazlası)
 LLM_USE_MMAP = True
-LLM_VERBOSE = True # Geliştirme için True, canlıda False
-LLM_STOP_WORDS = ["<|endoftext|>", "User:", "Assistant:", "Kullanıcı:", "Soru:", "Context:", "Cevabın:", "VERİLEN BİLGİLER (BAĞLAM):", "KULLANICI SORUSU:"]
+
 
 # --- Retriever Parametreleri ---
-SEMANTIC_RETRIEVER_K = 5
-SEMANTIC_RETRIEVER_SCORE_THRESHOLD = 0.2
-BM25_RETRIEVER_K = 4
-ENSEMBLE_WEIGHTS = [0.7, 0.3] # [semantik_ağırlık, bm25_ağırlık]
+SEMANTIC_RETRIEVER_K = 7 # Bir önceki mesajınızda 6 idi.
+SEMANTIC_RETRIEVER_SCORE_THRESHOLD = 0.3 # Bir önceki mesajınızda 0.3 idi.
+BM25_RETRIEVER_K = 7 # Bir önceki mesajınızda 6 idi.
+ENSEMBLE_WEIGHTS = [0.4, 0.6] # Bir önceki mesajınızda [0.5, 0.5] idi.
