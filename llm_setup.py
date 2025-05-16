@@ -3,23 +3,22 @@
 import os
 import traceback
 from langchain_community.llms import LlamaCpp
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
+# ChatOpenAI importu kaldırıldı
+from langchain_core.prompts import PromptTemplate, PromptTemplate as LLMChainFilterPromptTemplate # LLMChainFilter promptu için (gerçi artık kullanılmıyor ama dursun)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.document_loaders import JSONLoader
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
+from langchain_core.runnables import RunnableLambda, RunnableParallel
 from langchain_core.documents import Document
 
-# Langchain'in yeni import yolları için uyarıları dikkate alarak:
-from langchain_community.retrievers import BM25Retriever # Güncel import
+from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import EnsembleRetriever
 
-# --- RERANKING/FİLTRELEME İÇİN IMPORTLARI AKTİF ET ---
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainFilter
-# --- RERANKING/FİLTRELEME İÇİN IMPORTLARI AKTİF ET SONU ---
+# --- RERANKING/FİLTRELEME İÇİN IMPORTLARI KALDIRDIK ---
+# from langchain.retrievers import ContextualCompressionRetriever
+# from langchain.retrievers.document_compressors import LLMChainFilter
+# --- RERANKING/FİLTRELEME İÇİN IMPORTLARI KALDIRDIK SONU ---
 
 import config
 from utils import metadata_func, async_format_docs_for_context_and_log
@@ -29,47 +28,31 @@ async def initialize_rag_components():
     local_rag_chain = None
 
     try:
-        # 1. Dil Modelini (LLM) Yükle (Konfigürasyona göre)
-        if config.USE_LM_STUDIO_API:
-            print(f"LM Studio API'sine bağlanılıyor ({config.LM_STUDIO_API_BASE})...")
-            try:
-                local_llm_instance = ChatOpenAI(
-                    model_name=config.LM_STUDIO_MODEL_NAME,
-                    openai_api_base=config.LM_STUDIO_API_BASE,
-                    openai_api_key="lm-studio-key",
-                    temperature=config.LLM_TEMPERATURE,
-                    max_tokens=config.LLM_MAX_TOKENS,
-                )
-                print("LM Studio API için LLM örneği başarıyla oluşturuldu.")
-            except Exception as e:
-                print(f"HATA: LM Studio API'sine bağlanırken veya LLM örneği oluşturulurken hata: {e}")
-                print(traceback.format_exc())
-                return None, None
-        else: # Lokal LlamaCpp kullanılacaksa
-            print(f"Lokal LlamaCpp modeli '{config.MODEL_PATH}' yükleniyor...")
-            if not os.path.exists(config.MODEL_PATH):
-                raise FileNotFoundError(f"Lokal model dosyası bulunamadı: {config.MODEL_PATH}")
-            try:
-                local_llm_instance = LlamaCpp(
-                    model_path=config.MODEL_PATH, 
-                    n_gpu_layers=config.LLM_N_GPU_LAYERS, 
-                    n_ctx=4096,
-                    n_batch=config.LLM_N_BATCH, 
-                    use_mmap=config.LLM_USE_MMAP, 
-                    n_threads=config.LLM_N_THREADS,
-                    temperature=config.LLM_TEMPERATURE, 
-                    top_k=config.LLM_TOP_K, 
-                    top_p=config.LLM_TOP_P, 
-                    repeat_penalty=config.LLM_REPEAT_PENALTY,
-                    max_tokens=config.LLM_MAX_TOKENS, 
-                    verbose=config.LLM_VERBOSE,
-                    stop=config.LLM_STOP_WORDS
-                )
-                print("Lokal LlamaCpp LLM örneği başarıyla yüklendi.")
-            except Exception as e:
-                print(f"HATA: Lokal LlamaCpp modeli yüklenirken hata: {e}")
-                print(traceback.format_exc())
-                return None, None
+        # 1. Dil Modelini (LLM) Yükle (Sadece Lokal LlamaCpp)
+        print(f"Lokal LlamaCpp modeli '{config.MODEL_PATH}' yükleniyor...")
+        if not os.path.exists(config.MODEL_PATH):
+            raise FileNotFoundError(f"Lokal model dosyası bulunamadı: {config.MODEL_PATH}")
+        try:
+            local_llm_instance = LlamaCpp(
+                model_path=config.MODEL_PATH,
+                n_gpu_layers=config.LLM_N_GPU_LAYERS,
+                n_ctx=4096,
+                n_batch=config.LLM_N_BATCH,
+                use_mmap=config.LLM_USE_MMAP,
+                n_threads=config.LLM_N_THREADS,
+                temperature=config.LLM_TEMPERATURE,
+                top_k=config.LLM_TOP_K,
+                top_p=config.LLM_TOP_P,
+                repeat_penalty=config.LLM_REPEAT_PENALTY,
+                max_tokens=config.LLM_MAX_TOKENS,
+                verbose=config.LLM_VERBOSE,
+                stop=config.LLM_STOP_WORDS
+            )
+            print("Lokal LlamaCpp LLM örneği başarıyla yüklendi.")
+        except Exception as e:
+            print(f"HATA: Lokal LlamaCpp modeli yüklenirken hata: {e}")
+            print(traceback.format_exc())
+            return None, None
 
         if not local_llm_instance:
             print("HATA: LLM örneği oluşturulamadı.")
@@ -79,14 +62,12 @@ async def initialize_rag_components():
         print(f"Embedding modeli ({config.EMBEDDING_MODEL_NAME}) yükleniyor...")
         embeddings = HuggingFaceEmbeddings(
             model_name=config.EMBEDDING_MODEL_NAME,
-            model_kwargs={'device': 'cuda' if (not config.USE_LM_STUDIO_API and hasattr(config, 'LLM_N_GPU_LAYERS') and config.LLM_N_GPU_LAYERS > 0) or \
-                                            (config.USE_LM_STUDIO_API) else 'cpu'},
+            model_kwargs={'device': 'cuda' if config.LLM_N_GPU_LAYERS > 0 else 'cpu'},
             encode_kwargs={'normalize_embeddings': True}
         )
         print("Embedding modeli başarıyla yüklendi.")
 
         # 3. Vektör Deposu ve Belgeler
-        # ... (Bu kısım aynı kalacak, doc_chunks burada SSS dosyasından yükleniyor) ...
         vector_store = None
         doc_chunks = []
         chroma_db_exists = os.path.exists(config.CHROMA_PERSIST_DIRECTORY) and \
@@ -127,8 +108,6 @@ async def initialize_rag_components():
             print(f"Yeni ChromaDB başarıyla oluşturuldu ve '{config.CHROMA_PERSIST_DIRECTORY}' adresine kaydedildi.")
 
         # 4. Temel Retriever'lar
-        # Reranker'a daha az, daha hedefe yönelik doküman vermek için k değerlerini düşünebiliriz.
-        # Örneğin, config.py'de SEMANTIC_RETRIEVER_K ve BM25_RETRIEVER_K'yı 3-5 arasına çekebilirsiniz.
         semantic_retriever = vector_store.as_retriever(
             search_type="similarity_score_threshold",
             search_kwargs={'score_threshold': config.SEMANTIC_RETRIEVER_SCORE_THRESHOLD, 'k': config.SEMANTIC_RETRIEVER_K}
@@ -141,28 +120,40 @@ async def initialize_rag_components():
         # 5. Ensemble (Hibrit) Retriever Oluştur
         ensemble_retriever = EnsembleRetriever(
             retrievers=[semantic_retriever, bm25_retriever],
-            weights=config.ENSEMBLE_WEIGHTS # Ağırlıkları config'den alıyoruz
+            weights=config.ENSEMBLE_WEIGHTS
         )
         print("Ensemble (Hibrit) Retriever başarıyla oluşturuldu.")
-        
-        # --- RERANKING/FİLTRELEME ADIMINI TEKRAR AKTİF ET ---
-        print("LLMChainFilter tabanlı compressor ve ContextualCompressionRetriever oluşturuluyor...")
-        # LLMChainFilter, her bir dokümanın soruya uygun olup olmadığını LLM'e sorar.
-        # Bu, local_llm_instance'ı (ana LLM'imizi) kullanır.
-        llm_filter_compressor = LLMChainFilter.from_llm(local_llm_instance)
-        
-        # ContextualCompressionRetriever, ensemble_retriever'dan gelen dokümanları
-        # llm_filter_compressor ile işler.
-        compression_retriever_with_filter = ContextualCompressionRetriever(
-            base_compressor=llm_filter_compressor,
-            base_retriever=ensemble_retriever # Temel retriever olarak hibrit retriever'ı kullanıyoruz
-        )
-        final_retriever = compression_retriever_with_filter # Artık ana retriever'ımız bu sıkıştırılmış/filtrelenmiş retriever
-        print("ContextualCompressionRetriever (LLMChainFilter ile) başarıyla oluşturuldu.")
+
+        # --- RERANKING/FİLTRELEME ADIMI ARTIK YOK ---
+        # print("LLMChainFilter tabanlı compressor ve ContextualCompressionRetriever oluşturuluyor...")
+        # filter_prompt_str = """Aşağıdaki BELGE, sorulan SORU ile doğrudan ilgili mi?
+# SADECE 'EVET' veya 'HAYIR' olarak cevap ver. Başka HİÇBİR ŞEY YAZMA. Açıklama EKLEME.
+
+# BELGE:
+# {document}
+
+# SORU: {question}
+
+# İlgili (EVET/HAYIR):"""
+        # filter_prompt = LLMChainFilterPromptTemplate.from_template(filter_prompt_str)
+        # llm_filter_compressor = LLMChainFilter.from_llm(
+        #     llm=local_llm_instance,
+        #     prompt=filter_prompt
+        # )
+        # compression_retriever_with_filter = ContextualCompressionRetriever(
+        #     base_compressor=llm_filter_compressor,
+        #     base_retriever=ensemble_retriever
+        # )
+        # final_retriever = compression_retriever_with_filter
+        # print("ContextualCompressionRetriever (LLMChainFilter ile) başarıyla oluşturuldu.")
         # --- RERANKING/FİLTRELEME ADIMI SONU ---
 
+        # ARTIK final_retriever DOĞRUDAN ensemble_retriever OLACAK
+        final_retriever = ensemble_retriever
+        print("Ana retriever olarak Ensemble Retriever kullanılacak (LLMChainFilter devredışı).")
 
-        # 7. ASENKRON RAG Zincirini Kur (final_retriever artık compression_retriever_with_filter)
+
+        # 7. ASENKRON RAG Zincirini Kur (final_retriever artık ensemble_retriever)
         prompt_template_str = config.RAG_SYSTEM_PROMPT_TEXT + """
 
 VERİLEN BİLGİLER (BAĞLAM):
@@ -174,9 +165,9 @@ CEVABIN:"""
         rag_prompt = PromptTemplate.from_template(prompt_template_str)
 
         async def get_context_async(user_question_string: str) -> str:
-            print(f"DEBUG: get_context_async (reranking aktif) çağrıldı, user_question_string: '{user_question_string}'")
-            # final_retriever (ContextualCompressionRetriever) .ainvoke metodunu destekler
-            # ve filtrelenmiş/sıkıştırılmış dokümanları döndürür.
+            print(f"DEBUG: get_context_async (LLMChainFilter devredışı) çağrıldı, user_question_string: '{user_question_string}'")
+            # final_retriever (artık EnsembleRetriever) .ainvoke metodunu destekler
+            # ve filtrelenmemiş dokümanları döndürür.
             docs = await final_retriever.ainvoke(user_question_string)
             return await async_format_docs_for_context_and_log(docs)
 
@@ -189,8 +180,8 @@ CEVABIN:"""
             | local_llm_instance
             | StrOutputParser()
         )
-        print("Langchain ASENKRON RAG zinciri (Hibrit Retriever ve LLMChainFilter ile) başarıyla oluşturuldu.")
-        
+        print("Langchain ASENKRON RAG zinciri (Sadece Hibrit Retriever ile) başarıyla oluşturuldu.")
+
         return local_llm_instance, local_rag_chain
 
     except Exception as e:
